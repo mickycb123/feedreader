@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Smart Fish Feeder</title>
+
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+<div class="card">
+
+<h2>⏰ Set Jadwal</h2>
+
+<input
+id="schedule"
+placeholder="Contoh : 07:00,12:00,18:00">
+
+<button
+class="save"
+onclick="saveSchedule()">
+💾 SIMPAN JADWAL
+</button>
+
+</div>
+
+<div class="container">
+
+<h1>🐟 Smart Fish Feeder</h1>
+
+<div id="clock"></div>
+
+<div class="dashboard">
+
+<div class="card">
+
+<h2>📊 pH Air</h2>
+
+<div id="ph" class="value">-</div>
+
+<div id="phStatus" class="status">
+Menunggu Data...
+</div>
+
+</div>
+
+<div class="card">
+
+<h2>📡 Status ESP32</h2>
+
+<div id="status" class="status danger">
+OFFLINE
+</div>
+
+<br>
+
+<button class="feed" onclick="feed()">
+🍽 FEED NOW
+</button>
+
+</div>
+
+<div class="card">
+
+<h2>⏰ Set Jadwal</h2>
+
+<input
+id="schedule"
+placeholder="07:00,12:00,18:00">
+
+<button
+class="save"
+onclick="saveSchedule()">
+
+💾 SIMPAN JADWAL
+
+</button>
+
+</div>
+
+</div>
+
+<div class="footer">
+
+Smart Fish Feeder Monitoring System
+
+</div>
+
+</div>
+
+<div id="notif"></div>
+
+<script>
+
+const client = mqtt.connect("wss://test.mosquitto.org:8081");
+
+function notif(text,color){
+
+let n=document.getElementById("notif");
+
+n.innerHTML=text;
+
+n.style.background=color;
+
+n.style.display="block";
+
+setTimeout(()=>{
+
+n.style.display="none";
+
+},3000);
+
+}
+
+// Jam Digital
+
+function updateClock(){
+
+document.getElementById("clock").innerHTML=
+new Date().toLocaleString("id-ID");
+
+}
+
+setInterval(updateClock,1000);
+
+updateClock();
+
+client.on("connect",()=>{
+
+document.getElementById("status").innerHTML="🟢 ONLINE";
+
+document.getElementById("status").className="status normal";
+
+notif("ESP32 Terhubung","#28a745");
+
+client.subscribe("feeder/ph");
+
+client.subscribe("feeder/status");
+
+});
+
+client.on("message",(topic,message)=>{
+
+const msg=message.toString();
+
+if(topic==="feeder/ph"){
+
+document.getElementById("ph").innerHTML=msg;
+
+let ph=parseFloat(msg);
+
+let p=document.getElementById("ph");
+
+let s=document.getElementById("phStatus");
+
+if(ph<6.5){
+
+p.className="value danger";
+
+s.innerHTML="🔴 pH TERLALU RENDAH";
+
+}
+
+else if(ph>7.5){
+
+p.className="value warning";
+
+s.innerHTML="🟡 pH TERLALU TINGGI";
+
+}
+
+else{
+
+p.className="value normal";
+
+s.innerHTML="🟢 NORMAL";
+
+}
+
+}
+
+if(topic==="feeder/status"){
+
+let st=document.getElementById("status");
+
+st.innerHTML=msg;
+
+if(msg=="WARNING"){
+
+st.className="status danger";
+
+notif("⚠ Air Tidak Normal","#dc3545");
+
+}else{
+
+st.className="status normal";
+
+}
+
+}
+
+});
+
+function feed(){
+
+client.publish("feeder/feed","ON");
+
+notif("🍽 Perintah Feed Dikirim","#28a745");
+
+}
+
+function saveSchedule(){
+
+let jadwal=document.getElementById("schedule").value;
+
+client.publish("feeder/schedule",jadwal);
+
+notif("✅ Jadwal Disimpan","#007bff");
+
+}
+
+</script>
+
+</body>
+
+</html>
+<style>
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:'Segoe UI',sans-serif;
+}
+
+body{
+background:linear-gradient(135deg,#0f172a,#1e3a8a);
+min-height:100vh;
+color:white;
+padding:30px;
+}
+
+.container{
+max-width:1100px;
+margin:auto;
+}
+
+h1{
+text-align:center;
+font-size:40px;
+margin-bottom:15px;
+}
+
+#clock{
+text-align:center;
+font-size:20px;
+margin-bottom:25px;
+color:#ddd;
+}
+
+.dashboard{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+gap:20px;
+}
+
+.card{
+background:rgba(255,255,255,.08);
+backdrop-filter:blur(12px);
+padding:25px;
+border-radius:20px;
+box-shadow:0 10px 25px rgba(0,0,0,.35);
+transition:.3s;
+}
+
+.card:hover{
+transform:translateY(-5px);
+box-shadow:0 15px 30px rgba(0,0,0,.5);
+}
+
+.card h2{
+margin-bottom:20px;
+text-align:center;
+font-size:22px;
+}
+
+.value{
+font-size:55px;
+font-weight:bold;
+text-align:center;
+margin:15px 0;
+}
+
+.status{
+text-align:center;
+padding:12px;
+border-radius:10px;
+font-weight:bold;
+font-size:18px;
+}
+
+.normal{
+background:#22c55e;
+color:white;
+}
+
+.warning{
+background:#f59e0b;
+color:white;
+}
+
+.danger{
+background:#ef4444;
+color:white;
+}
+
+input{
+width:100%;
+padding:14px;
+border:none;
+outline:none;
+border-radius:10px;
+font-size:17px;
+margin-bottom:15px;
+background:white;
+}
+
+button{
+width:100%;
+padding:15px;
+border:none;
+border-radius:12px;
+font-size:18px;
+font-weight:bold;
+cursor:pointer;
+transition:.3s;
+}
+
+.feed{
+background:#16a34a;
+color:white;
+}
+
+.feed:hover{
+background:#15803d;
+transform:scale(1.03);
+}
+
+.save{
+background:#2563eb;
+color:white;
+}
+
+.save:hover{
+background:#1d4ed8;
+transform:scale(1.03);
+}
+
+.footer{
+text-align:center;
+margin-top:35px;
+opacity:.8;
+font-size:15px;
+}
+
+#notif{
+position:fixed;
+top:25px;
+right:25px;
+padding:18px 25px;
+border-radius:12px;
+display:none;
+font-weight:bold;
+color:white;
+box-shadow:0 8px 20px rgba(0,0,0,.3);
+animation:slide .4s;
+}
+
+@keyframes slide{
+from{
+transform:translateX(120%);
+}
+to{
+transform:translateX(0);
+}
+}
+
+@media(max-width:700px){
+
+h1{
+font-size:30px;
+}
+
+.value{
+font-size:42px;
+}
+
+}
+</style>
